@@ -1,0 +1,65 @@
+# LeadMastraChat
+
+Commercial intake chatbot that qualifies leads using AI — built as a learning project to understand agent-based architectures with [Mastra](https://mastra.ai/).
+
+## What it does
+
+A user sends a free-text message describing their need. The system:
+
+1. Runs the message through an **AI agent** that extracts structured data (contact info, budget signals, urgency, decision authority)
+2. Scores the lead **deterministically** (0–100) using fixed rules — no AI involved in the scoring
+3. Saves every lead to **Supabase** regardless of score (to track conversion over time)
+4. (In progress) Pushes high-score leads (≥75) to **HubSpot** as contacts
+
+The core design principle: **the agent interprets, the workflow controls**. Business decisions are code, not prompts.
+
+## Stack
+
+- **Mastra** — agent and workflow orchestration
+- **OpenAI** — structured output extraction via `agent.generate()` with Zod schema validation
+- **Supabase** — lead persistence
+- **HubSpot** — CRM integration (in progress)
+- **TypeScript** (strict) + ESM + Zod v4
+
+## Architecture
+
+```
+message / PDF
+      ↓
+[extract-pdf-step]   ← optional, reads PDF with unpdf
+      ↓
+[analyze-lead-step]  ← AI agent → structured output (Zod-validated)
+      ↓
+[score-lead-step]    ← pure function, deterministic rules
+      ↓
+[save-lead-step]     ← inserts to Supabase
+      ↓
+[hubspot-step]       ← conditional, score ≥ 75 (in progress)
+```
+
+Business logic lives in pure functions (`calculateLeadScore`, `insertLead`) that are imported directly — not hidden inside Mastra tools. This keeps them testable without spinning up the framework.
+
+## Setup
+
+```bash
+cp .env.example .env   # fill in your keys
+npm install
+npm run dev            # Mastra Studio at http://localhost:4111
+```
+
+Required env vars:
+
+```
+OPENAI_API_KEY=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+HUBSPOT_ACCESS_TOKEN=     # Private App token (pat-na1-...)
+```
+
+## Roadmap
+
+- [x] Phase 1 — MVP: message → analysis → score → Supabase
+- [x] Phase 2 — PDF support: upload a requirements PDF, extract text, feed into agent
+- [ ] Phase 3 — HubSpot: push qualified leads to CRM
+- [ ] Phase 4 — API Gateway: Express layer with auth, rate limiting, and SSE
+- [ ] Phase 5 — RAG: lightweight retrieval for internal guidelines

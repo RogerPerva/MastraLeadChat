@@ -1,12 +1,11 @@
 {
   "compilerOptions": {
-    "target": "es2016",
-    "module": "commonjs",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "strict": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "dist"
-  },
-  "include": ["src"]
+    "allowSyntheticDefaultImports": true
+  }
 }

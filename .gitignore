@@ -1,11 +1,31 @@
-/tmp
-/out-tsc
+output.txt 
+node_modules 
+dist 
+.mastra 
+.env.development 
+.env 
+*.db 
+*.db-* 
+.netlify 
+.vercel 
 
-/node_modules
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-/.pnp
-.pnp.js
+# Dependencies
+node_modules/
 
-.vscode/*
+# Env files
+.env
+.env.local
+
+# Mastra local DB / runtime files
+*.duckdb
+*.duckdb.wal
+*.duckdb.shm
+
+# Logs
+*.log
+logs/
+
+# Build output
+dist/
+build/
+.next/

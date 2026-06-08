@@ -76,8 +76,7 @@ src/mastra/
     └── lead.schema.ts               # Contratos de datos (Zod) reutilizables
 ```
 
-> Los archivos `weather-*` son ejemplos que vinieron con la plantilla de Mastra. Puedes
-> borrarlos cuando quieras; no afectan el sistema de leads.
+> Los archivos `weather-*` de la plantilla original de Mastra fueron eliminados.
 
 ---
 
@@ -213,10 +212,6 @@ qualification_reason, hubspot_contact_id`
 
 - Regenerar `SUPABASE_SERVICE_ROLE_KEY` y `HUBSPOT_ACCESS_TOKEN`: estuvieron expuestas en
   el índice de git al inicio del proyecto.
-- Limpiar archivos temporales: `mastra-chat/create-test-pdf.mjs` y `mastra-chat/test-lead.pdf`
-- El proyecto raíz `mastrachat/` (fuera de `mastra-chat/`) es un esqueleto vacío que
-  nunca se usó. Su `src/index.ts`, `package.json` y `.env` no los lee nadie. Se puede
-  ignorar o eliminar para evitar confusión.
 
 ---
 
@@ -247,7 +242,7 @@ del portal de desarrollador de HubSpot, no un Private App token del CRM.
 1. Ir a **app.hubspot.com** (cuenta CRM, NO developers.hubspot.com)
 2. Settings → Integrations → **Private Apps** → Create a private app
 3. Activar scopes: `crm.objects.contacts.read` y `crm.objects.contacts.write`
-4. Copiar el token generado (formato `pat-na1-...`) y ponerlo en `mastra-chat/.env`
+4. Copiar el token generado (formato `pat-na1-...`) y ponerlo en `.env`
    como `HUBSPOT_ACCESS_TOKEN`
 5. Implementar `create-hubspot-contact-tool.ts` (el esqueleto ya existe)
 6. Agregar un paso condicional al workflow: si `score ≥ 75` → llamar a HubSpot
