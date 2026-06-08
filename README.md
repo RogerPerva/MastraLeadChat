@@ -31,11 +31,11 @@ message* and PDF(optional)
 [score-lead-step]    ← pure function, deterministic rules
       ↓
 [save-lead-step]     ← inserts to Supabase
-      ↓
-[hubspot-step]       ← conditional, score ≥ 75 (in progress)
+
+Next phase: add a conditional HubSpot step for score ≥75.
 ```
 
-Business logic lives in pure functions (`calculateLeadScore`, `insertLead`) that are imported directly — not hidden inside Mastra tools. This keeps them testable without spinning up the framework.
+Business rules live outside the agent prompt. `calculateLeadScore` is a pure function, while `insertLead` isolates the Supabase write behind a small service-style function. Both are imported directly by the workflow instead of being hidden inside Mastra tools.
 
 ## Setup
 

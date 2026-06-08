@@ -65,12 +65,12 @@ src/mastra/
 ├── tools/
 │   ├── score-lead-tool.ts           # Reglas de score (función pura calculateLeadScore)
 │   ├── save-lead-tool.ts            # Inserta en Supabase (función pura insertLead)
-│   ├── create-hubspot-contact-tool.ts   # STUB — para Fase 4 (HubSpot)
-│   └── extract-pdf-text-tool.ts     # STUB — para Fase 2 (PDF)
+│   ├── create-hubspot-contact-tool.ts   # Base de Fase 3 — aún no conectada al workflow
+│   └── extract-pdf-text-tool.ts     # Tool registrada para extraer texto de PDFs
 │
 ├── services/
 │   ├── supabase.service.ts          # Cliente de Supabase (usa SERVICE_ROLE_KEY, solo backend)
-│   └── pdf.service.ts               # STUB — leerá PDFs reales en Fase 2
+│   └── pdf.service.ts               # Extrae texto real de PDFs con unpdf
 │
 └── schemas/
     └── lead.schema.ts               # Contratos de datos (Zod) reutilizables
@@ -82,7 +82,11 @@ src/mastra/
 
 ## 4. Cómo fluye un lead, paso a paso
 
-Todo vive en `workflows/lead-qualification-workflow.ts`, que encadena 3 *steps*:
+Todo vive en `workflows/lead-qualification-workflow.ts`, que encadena 4 *steps*:
+
+0. **`extract-pdf-step`** — Si llega `pdfBase64`, convierte el PDF a texto con `unpdf`,
+   valida tamaño máximo y recorta el contexto a 20,000 caracteres. Si no hay PDF, pasa
+   solo el mensaje.
 
 1. **`analyze-lead`** — Llama al agente con `structuredOutput`. La IA devuelve un objeto
    ya validado (en `response.object`) con: datos de contacto, `need`, y señales
@@ -160,7 +164,8 @@ Abre **Mastra Studio** en http://localhost:4111 → workflow
 > solo uno.
 
 Variables necesarias en `.env` (Fase 1): `OPENAI_API_KEY`, `SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`. **`.env` está en `.gitignore`: nunca lo subas a git.**
+`SUPABASE_SERVICE_ROLE_KEY`. Para Fase 3 se agrega `HUBSPOT_ACCESS_TOKEN`. Puedes copiar
+`.env.example` como base. **`.env` está en `.gitignore`: nunca lo subas a git.**
 
 ---
 

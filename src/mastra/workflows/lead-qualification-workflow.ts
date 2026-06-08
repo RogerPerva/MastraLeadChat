@@ -2,44 +2,19 @@ import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { calculateLeadScore } from "../tools/score-lead-tool";
 import { insertLead } from "../tools/save-lead-tool";
-import { extractTextFromPdf } from "../services/pdf.service";
+import { extractTextFromPdf, MAX_PDF_BASE64_LENGTH } from "../services/pdf.service";
+import { leadAnalysisSchema } from "../schemas/lead.schema";
 
 /**
- * WORKFLOW DE CALIFICACIÓN DE LEADS — Fase 1
+ * WORKFLOW DE CALIFICACIÓN DE LEADS — Fase 2
  *
- * Flujo:  mensaje --> (1) analizar con IA --> (2) score con reglas --> (3) guardar en Supabase
+ * Flujo: mensaje/PDF --> (0) extraer PDF --> (1) analizar con IA
+ *        --> (2) score con reglas --> (3) guardar en Supabase
  *
  * Idea clave: la IA SOLO interpreta y extrae datos (paso 1).
  * Las decisiones comerciales (score) y la persistencia (Supabase)
  * son deterministas y viven en tools, no en el prompt.
  */
-
-/**
- * Estructura que la IA debe devolver al analizar el lead.
- * La usamos en DOS lugares:
- *  - como `structuredOutput` al llamar al agente (la IA responde un objeto ya validado)
- *  - como `outputSchema` del primer paso del workflow
- */
-const leadAnalysisSchema = z.object({
-    name: z.string().optional(),
-    email: z.string().optional(),
-    phone: z.string().optional(),
-    company: z.string().optional(),
-    role: z.string().optional(),
-
-    leadType: z.enum(["hr", "dev", "business", "unknown"]),
-    need: z.string(),
-    budget: z.string().optional(),
-    timeline: z.string().optional(),
-
-    hasBudget: z.boolean(),
-    hasUrgency: z.boolean(),
-    hasDecisionAuthority: z.boolean(),
-    hasClearNeed: z.boolean(),
-    fitLevel: z.enum(["low", "medium", "high"]),
-
-    reason: z.string(),
-});
 
 /**
  * Paso 0 (opcional): Si viene un PDF en base64, extrae su texto.
@@ -50,7 +25,7 @@ const extractPdfStep = createStep({
 
     inputSchema: z.object({
         message: z.string(),
-        pdfBase64: z.string().optional(),
+        pdfBase64: z.string().max(MAX_PDF_BASE64_LENGTH).optional(),
         pdfName: z.string().optional(),
     }),
 
@@ -69,7 +44,7 @@ const extractPdfStep = createStep({
 
         return {
             message: inputData.message,
-            pdfText: pdfText.slice(0, 20_000),
+            pdfText,
         };
     },
 });
@@ -200,7 +175,7 @@ export const leadQualificationWorkflow = createWorkflow({
 
     inputSchema: z.object({
         message: z.string(),
-        pdfBase64: z.string().optional(),
+        pdfBase64: z.string().max(MAX_PDF_BASE64_LENGTH).optional(),
         pdfName: z.string().optional(),
     }),
 

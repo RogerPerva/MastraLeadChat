@@ -1,6 +1,10 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { extractTextFromPdf } from "../services/pdf.service";
+import {
+    extractTextFromPdf,
+    MAX_PDF_BASE64_LENGTH,
+    MAX_PDF_SIZE_BYTES,
+} from "../services/pdf.service";
 
 /**
  * Tool que convierte un PDF en texto.
@@ -13,7 +17,7 @@ export const extractPdfTextTool = createTool({
     description: "Extrae texto desde un archivo PDF de requerimientos.",
 
     inputSchema: z.object({
-        fileBufferBase64: z.string(),
+        fileBufferBase64: z.string().max(MAX_PDF_BASE64_LENGTH),
         fileName: z.string(),
         mimeType: z.string(),
         fileSizeBytes: z.number(),
@@ -29,9 +33,7 @@ export const extractPdfTextTool = createTool({
             throw new Error("Solo se permiten archivos PDF.");
         }
 
-        const maxSizeBytes = 5 * 1024 * 1024;
-
-        if (inputData.fileSizeBytes > maxSizeBytes) {
+        if (inputData.fileSizeBytes > MAX_PDF_SIZE_BYTES) {
             throw new Error("El PDF excede el tamaño máximo permitido de 5 MB.");
         }
 
@@ -39,12 +41,6 @@ export const extractPdfTextTool = createTool({
 
         const extractedText = await extractTextFromPdf(buffer);
 
-        if (!extractedText.trim()) {
-            throw new Error("No se pudo extraer texto del PDF.");
-        }
-
-        return {
-            extractedText: extractedText.slice(0, 20_000),
-        };
+        return { extractedText };
     },
 });
