@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intake de Leads</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f0f0f;
+      color: #e5e5e5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 36px;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 6px; }
+    p.subtitle { font-size: 0.875rem; color: #888; margin-bottom: 28px; }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #aaa;
+      margin-bottom: 6px;
+      margin-top: 20px;
+    }
+
+    textarea, input[type="file"] {
+      width: 100%;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e5e5e5;
+      font-size: 0.9rem;
+      padding: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    textarea { resize: vertical; min-height: 100px; }
+    textarea:focus { border-color: #555; }
+
+    input[type="file"] {
+      padding: 10px 12px;
+      cursor: pointer;
+      color: #888;
+    }
+
+    input[type="file"]::file-selector-button {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 6px;
+      color: #e5e5e5;
+      cursor: pointer;
+      font-size: 0.8rem;
+      padding: 5px 12px;
+      margin-right: 12px;
+    }
+
+    .hint { font-size: 0.75rem; color: #555; margin-top: 5px; }
+
+    button {
+      width: 100%;
+      margin-top: 28px;
+      padding: 13px;
+      background: #e5e5e5;
+      color: #0f0f0f;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    button:hover:not(:disabled) { opacity: 0.88; }
+
+    #status {
+      margin-top: 24px;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      display: none;
+    }
+
+    #status.loading { background: #1e2a1e; border: 1px solid #2d4a2d; color: #6fcf97; }
+    #status.success { background: #1a2a1a; border: 1px solid #2d5a2d; color: #6fcf97; }
+    #status.error   { background: #2a1a1a; border: 1px solid #5a2d2d; color: #eb5757; }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .result-item {
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 10px 14px;
+    }
+
+    .result-label { font-size: 0.7rem; color: #666; margin-bottom: 3px; }
+    .result-value { font-size: 1rem; font-weight: 600; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge.qualified    { background: #1a4a1a; color: #6fcf97; }
+    .badge.nurture      { background: #3a3a1a; color: #f2c94c; }
+    .badge.disqualified { background: #4a1a1a; color: #eb5757; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Formulario de Intake Comercial</h1>
+    <p class="subtitle">Cuéntanos tu proyecto. La IA lo analizará y calificará automáticamente.</p>
+
+    <label for="message">Mensaje *</label>
+    <textarea
+      id="message"
+      placeholder="Hola, soy el director de TI de Empresa ABC. Necesitamos un sistema de nómina para 450 empleados..."
+    ></textarea>
+
+    <label for="pdf">Requerimiento en PDF (opcional)</label>
+    <input type="file" id="pdf" accept="application/pdf" />
+    <p class="hint">Máximo 5 MB. Solo archivos .pdf</p>
+
+    <button id="submitBtn" onclick="submitLead()">Enviar y calificar</button>
+
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const MASTRA_URL = "http://localhost:4111";
+    const WORKFLOW_KEY = "leadQualificationWorkflow"; // clave de registro en index.ts
+
+    function setStatus(type, html) {
+      const el = document.getElementById("status");
+      el.className = type;
+      el.style.display = "block";
+      el.innerHTML = html;
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          // El resultado es "data:application/pdf;base64,XXXX"
+          // Solo nos quedamos con la parte después de la coma
+          const base64 = reader.result.split(",")[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitLead() {
+      const message = document.getElementById("message").value.trim();
+      const pdfInput = document.getElementById("pdf");
+      const btn = document.getElementById("submitBtn");
+
+      if (!message) {
+        setStatus("error", "El mensaje es obligatorio.");
+        return;
+      }
+
+      const pdfFile = pdfInput.files[0];
+      if (pdfFile && pdfFile.size > 5 * 1024 * 1024) {
+        setStatus("error", "El PDF excede el tamaño máximo de 5 MB.");
+        return;
+      }
+
+      btn.disabled = true;
+      setStatus("loading", "Analizando tu solicitud con IA...");
+
+      try {
+        const inputData = { message };
+
+        if (pdfFile) {
+          inputData.pdfBase64 = await fileToBase64(pdfFile);
+          inputData.pdfName = pdfFile.name;
+        }
+
+        // 1. Crear el run (obtiene un runId único)
+        const createRes = await fetch(
+          `${MASTRA_URL}/api/workflows/${WORKFLOW_KEY}/create-run`,
+          { method: "POST", headers: { "Content-Type": "application/json" } }
+        );
+        if (!createRes.ok) throw new Error("No se pudo crear el run.");
+        const { runId } = await createRes.json();
+
+        // 2. Iniciar el run con los datos del lead
+        const startRes = await fetch(
+          `${MASTRA_URL}/api/workflows/${WORKFLOW_KEY}/start?runId=${runId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ inputData }),
+          }
+        );
+        if (!startRes.ok) throw new Error("No se pudo iniciar el workflow.");
+
+        // 3. Polling hasta que termine (máx ~45 segundos)
+        let result = null;
+        for (let i = 0; i < 30; i++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          const statusRes = await fetch(
+            `${MASTRA_URL}/api/workflows/${WORKFLOW_KEY}/runs/${runId}`
+          );
+          const data = await statusRes.json();
+          if (data.status === "success" || data.status === "failed") {
+            result = data;
+            break;
+          }
+        }
+
+        if (!result) throw new Error("El workflow tardó demasiado. Intenta de nuevo.");
+        if (result.status === "failed") throw new Error(result.error ?? "Error en el workflow.");
+
+        // 4. Mostrar resultado
+        const output = result.result;
+        const statusLabel =
+          output.status === "qualified"   ? "Calificado"      :
+          output.status === "nurture"     ? "En seguimiento"  :
+          "No calificado";
+
+        setStatus("success", `
+          <div style="margin-bottom:12px;font-weight:600;">Solicitud procesada correctamente</div>
+          <div class="result-grid">
+            <div class="result-item">
+              <div class="result-label">Score</div>
+              <div class="result-value">${output.score} / 100</div>
+            </div>
+            <div class="result-item">
+              <div class="result-label">Estado</div>
+              <div class="result-value">
+                <span class="badge ${output.status}">${statusLabel}</span>
+              </div>
+            </div>
+            <div class="result-item" style="grid-column:span 2">
+              <div class="result-label">ID del lead</div>
+              <div class="result-value" style="font-size:0.8rem;color:#666;">${output.leadId}</div>
+            </div>
+          </div>
+        `);
+      } catch (err) {
+        setStatus("error", "Error: " + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

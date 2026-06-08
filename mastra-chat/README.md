@@ -1,5 +1,10 @@
 # mastra-chat
 
+> 📖 **LECTURA OBLIGATORIA:** antes de tocar nada, lee **[CONTEXT.md](./CONTEXT.md)**.
+> Explica qué es el proyecto, cómo funciona, la arquitectura, los conceptos clave de
+> Mastra y en qué fase vamos. Si eres una IA ayudando con este repo, **lee CONTEXT.md
+> primero** para mantener el contexto y enseñar, no solo entregar código.
+
 Welcome to your new [Mastra](https://mastra.ai/) project! We're excited to see what you'll build.
 
 ## Getting Started

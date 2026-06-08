@@ -8,3 +8,24 @@ dist
 *.db-* 
 .netlify 
 .vercel 
+
+# Dependencies
+node_modules/
+
+# Env files
+.env
+.env.local
+
+# Mastra local DB / runtime files
+*.duckdb
+*.duckdb.wal
+*.duckdb.shm
+
+# Logs
+*.log
+logs/
+
+# Build output
+dist/
+build/
+.next/

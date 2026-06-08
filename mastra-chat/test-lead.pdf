@@ -1,0 +1,100 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1561 >>
+stream
+BT
+/F1 10 Tf
+50 780 Td
+(REQUERIMIENTO TECNICO - EMPRESA TECHCORP) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Datos de contacto:) Tj
+0 -16 Td
+(  Empresa:  TechCorp SA de CV) Tj
+0 -16 Td
+(  Contacto: Carlos Mendez) Tj
+0 -16 Td
+(  Cargo:    Director de Tecnologia) Tj
+0 -16 Td
+(  Email:    carlos.mendez@techcorp.com.mx) Tj
+0 -16 Td
+(  Telefono: +52 55 1234 5678) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Descripcion del proyecto:) Tj
+0 -16 Td
+(  Necesitamos implementar un sistema de nomina y RRHH para) Tj
+0 -16 Td
+(  gestionar a nuestros 450 empleados distribuidos en 3 oficinas.) Tj
+0 -16 Td
+(  Actualmente usamos Excel y genera muchos errores cada quincena.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Presupuesto:) Tj
+0 -16 Td
+(  Contamos con presupuesto aprobado de $60,000 USD anuales.) Tj
+0 -16 Td
+(  Incluye licencias, implementacion y soporte.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Urgencia:) Tj
+0 -16 Td
+(  Necesitamos tener el sistema operando antes del 1 de septiembre 2026.) Tj
+0 -16 Td
+(  Hay una auditoria fiscal programada para octubre.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Autoridad de decision:) Tj
+0 -16 Td
+(  Yo \(Director de Tecnologia\) y el CFO somos los responsables) Tj
+0 -16 Td
+(  de la decision final. El contrato lo firma el CEO.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Requerimientos tecnicos:) Tj
+0 -16 Td
+(  - Calculo de nomina quincenal y mensual) Tj
+0 -16 Td
+(  - Timbrado CFDI 4.0 \(SAT Mexico\)) Tj
+0 -16 Td
+(  - Control de vacaciones y ausencias) Tj
+0 -16 Td
+(  - Integracion con contabilidad \(CONTPAQi\)) Tj
+0 -16 Td
+(  - App movil para empleados) Tj
+0 -16 Td
+(  - Soporte en espanol 8x5) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001853 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1923
+%%EOF
