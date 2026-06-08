@@ -63,6 +63,25 @@ export async function insertLead(input: SaveLeadInput): Promise<{ leadId: string
     return { leadId: String(data.id) };
 }
 
+/**
+ * Relaciona el lead guardado con el contacto sincronizado en HubSpot.
+ */
+export async function updateLeadHubSpotContactId(
+    leadId: string,
+    hubspotContactId: string
+): Promise<void> {
+    const { error } = await supabaseAdmin
+        .from("leads")
+        .update({ hubspot_contact_id: hubspotContactId })
+        .eq("id", leadId);
+
+    if (error) {
+        throw new Error(
+            `Error actualizando el contacto de HubSpot en el lead: ${error.message}`
+        );
+    }
+}
+
 export const saveLeadTool = createTool({
     id: "save-lead",
     description: "Guarda un lead en Supabase.",

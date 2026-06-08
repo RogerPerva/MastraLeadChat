@@ -13,8 +13,7 @@
 
 Un **chatbot de intake comercial con IA**. No es "solo un chatbot": es un sistema que
 captura prospectos (leads), entiende su necesidad, les pone una calificación comercial
-(score) y los guarda. Más adelante podrá leer PDFs de requerimientos y mandar los
-mejores leads a HubSpot.
+(score), los guarda y manda los leads calificados a HubSpot.
 
 Flujo central:
 
@@ -27,7 +26,7 @@ mensaje del lead
       ↓
 [Supabase] guarda el lead (califique o no)
       ↓
-[futuro] si score alto → HubSpot
+si score ≥75 → crea o actualiza contacto en HubSpot
 ```
 
 Construido con **Mastra** (framework de agentes/workflows en TypeScript).
@@ -60,20 +59,28 @@ src/mastra/
 │   └── lead-agent.ts                # IA que SOLO extrae datos del mensaje (sin tools)
 │
 ├── workflows/
-│   └── lead-qualification-workflow.ts   # El "director de orquesta": 3 pasos en orden
+│   └── lead-qualification-workflow.ts   # El "director de orquesta": 5 pasos en orden
+│
+├── routes/
+│   └── intake.route.ts              # Única entrada pública: POST /intake
+│
+├── public/
+│   └── intake.html                  # Formulario público servido por Mastra
 │
 ├── tools/
 │   ├── score-lead-tool.ts           # Reglas de score (función pura calculateLeadScore)
 │   ├── save-lead-tool.ts            # Inserta en Supabase (función pura insertLead)
-│   ├── create-hubspot-contact-tool.ts   # Base de Fase 3 — aún no conectada al workflow
+│   ├── create-hubspot-contact-tool.ts   # Crea/actualiza contactos por email en HubSpot
 │   └── extract-pdf-text-tool.ts     # Tool registrada para extraer texto de PDFs
 │
 ├── services/
 │   ├── supabase.service.ts          # Cliente de Supabase (usa SERVICE_ROLE_KEY, solo backend)
-│   └── pdf.service.ts               # Extrae texto real de PDFs con unpdf
+│   ├── pdf.service.ts               # Extrae texto real de PDFs con unpdf
+│   └── rate-limit.service.ts        # Rate limiting simple en memoria para POST /intake
 │
 └── schemas/
-    └── lead.schema.ts               # Contratos de datos (Zod) reutilizables
+    ├── lead.schema.ts               # Contrato de salida estructurada del agente
+    └── intake.schema.ts             # Contrato de entrada/salida pública de POST /intake
 ```
 
 > Los archivos `weather-*` de la plantilla original de Mastra fueron eliminados.
@@ -82,7 +89,7 @@ src/mastra/
 
 ## 4. Cómo fluye un lead, paso a paso
 
-Todo vive en `workflows/lead-qualification-workflow.ts`, que encadena 4 *steps*:
+Todo vive en `workflows/lead-qualification-workflow.ts`, que encadena 5 *steps*:
 
 0. **`extract-pdf-step`** — Si llega `pdfBase64`, convierte el PDF a texto con `unpdf`,
    valida tamaño máximo y recorta el contexto a 20,000 caracteres. Si no hay PDF, pasa
@@ -109,6 +116,17 @@ Todo vive en `workflows/lead-qualification-workflow.ts`, que encadena 4 *steps*:
 3. **`save-lead-step`** — Llama a `insertLead(...)`, que inserta en la tabla `leads` de
    Supabase y devuelve el `leadId`. **Se guardan todos los leads**, califiquen o no
    (para medir conversión después).
+
+4. **`sync-qualified-lead-with-hubspot-step`** — Si el score es ≥75 y existe email,
+   crea o actualiza el contacto en HubSpot usando el email como identificador y guarda
+   su ID en `hubspot_contact_id`. Si HubSpot falla, el lead guardado no se pierde.
+
+Además del workflow, la entrada pública pasa primero por `routes/intake.route.ts`:
+
+- valida el JSON con `intakeInputSchema`
+- exige que el email venga dentro del `message`
+- aplica rate limiting básico por IP
+- ejecuta el workflow por detrás y solo devuelve `{ leadId, score, status }`
 
 ---
 
@@ -156,8 +174,16 @@ para Studio ni para la API.
 ```shell
 npm run dev
 ```
-Abre **Mastra Studio** en http://localhost:4111 → workflow
-`lead-qualification-workflow` → **Run** → escribe un mensaje de prueba.
+Abre la URL que imprima la terminal para **Mastra Studio**. Normalmente será
+`http://0.0.0.0:4111` o `http://0.0.0.0:4112`, según si ya hay otro proceso usando el
+puerto anterior.
+
+Para probar el flujo público:
+
+1. Abre `/` o `/intake.html`
+2. Envía un mensaje que incluya un email válido
+3. Opcionalmente adjunta un PDF
+4. El backend responderá con `leadId`, `score` y `status`
 
 > ⚠️ En Windows, **no dejes dos `mastra dev` corriendo a la vez**: pelean por el archivo
 > `mastra.duckdb` y truena con un error de "file is being used by another process". Corre
@@ -167,6 +193,14 @@ Variables necesarias en `.env` (Fase 1): `OPENAI_API_KEY`, `SUPABASE_URL`,
 `SUPABASE_SERVICE_ROLE_KEY`. Para Fase 3 se agrega `HUBSPOT_ACCESS_TOKEN`. Puedes copiar
 `.env.example` como base. **`.env` está en `.gitignore`: nunca lo subas a git.**
 
+Para desplegar públicamente también es obligatoria `ADMIN_API_KEY`. Protege las rutas
+internas de Mastra; `POST /intake` permanece público, valida el payload y limita
+solicitudes por IP.
+
+Nota importante:
+- Abrir `intake.html` como archivo local (`file://`) no funciona, porque el formulario
+  hace `fetch("/intake")` y necesita servirse desde HTTP por Mastra.
+
 ---
 
 ## 7. Roadmap (en qué fase vamos)
@@ -174,15 +208,13 @@ Variables necesarias en `.env` (Fase 1): `OPENAI_API_KEY`, `SUPABASE_URL`,
 - ✅ **Fase 1 — MVP (HECHA):** `mensaje → análisis → score → Supabase`.
 - ✅ **Fase 2 — PDF (HECHA):** `unpdf` instalado, `pdf.service.ts` implementado,
   nuevo paso `extract-pdf-step` al inicio del workflow. El input del workflow
-  ahora acepta `pdfBase64` (opcional). Frontend de prueba en `public/intake.html`.
-- ⬜ **Fase 3 — HubSpot:** crear contacto/ticket cuando el score sea muy alto (≥75). La
-  tool `create-hubspot-contact-tool.ts` ya existe como esqueleto.
-- ⬜ **Fase 4 — API Gateway (Layered Architecture):** crear una API propia en
-  Express o Next.js que envuelva a Mastra. Mastra deja de estar expuesto al
-  público. Esta capa agrega: autenticación (JWT o API keys), validación de input
-  (Zod como DTO), rate limiting, y SSE (Server-Sent Events — conexión abierta
-  donde el servidor empuja eventos al navegador sin polling). Patrón:
-  Clean Architecture + API Gateway Pattern.
+  ahora acepta `pdfBase64` (opcional). Frontend de prueba en `src/mastra/public/intake.html`.
+- ✅ **Fase 3 — HubSpot:** crea o actualiza un contacto cuando el score es alto (≥75)
+  y relaciona su ID con el lead guardado en Supabase.
+- 🟨 **Fase 4 — API Gateway mínima para pruebas:** `POST /intake` ya envuelve al
+  workflow con validación Zod, rate limiting en memoria y protección por API key para
+  rutas internas. Pendiente para producción real: rate limiting distribuido, auth de
+  usuarios y monitoreo.
 - ⬜ **Fase 5 — RAG ligero:** solo para lineamientos internos, no para todo (ahorra
   tokens).
 
@@ -222,37 +254,35 @@ qualification_reason, hubspot_contact_id`
 
 ## 10. Estado al cierre de sesión — dónde continuar
 
-**Fecha:** 2026-06-07
+**Fecha:** 2026-06-08
 
 ### Lo que se hizo en esta sesión
-- Diagnosticado y resuelto: workflow corría bien pero se accedía por la interfaz
-  equivocada (chat del agente en vez de la sección Workflows del Studio).
-- Implementada **Fase 2 (PDF)**: `pdf.service.ts` con `unpdf`, nuevo paso
-  `extract-pdf-step` en el workflow, input `pdfBase64` opcional.
-- Creado `public/intake.html`: frontend HTML real con subida de archivo PDF,
-  llama a la API de Mastra con el patrón correcto (create-run → start → polling GET).
-- Corregidas las URLs de la API de Mastra:
-  - `POST /api/workflows/leadQualificationWorkflow/create-run` → devuelve `{ runId }`
-  - `POST /api/workflows/leadQualificationWorkflow/start?runId=X` → inicia el workflow
-  - `GET  /api/workflows/leadQualificationWorkflow/runs/:runId` → consulta resultado
-  - La clave del workflow en la URL es `leadQualificationWorkflow` (camelCase), no el id.
-- Auditada la arquitectura: proyecto raíz vacío identificado, estructura explicada.
+- Implementado `POST /intake` público con validación Zod, rate limit en memoria y
+  frontend servido desde `src/mastra/public/intake.html`.
+- Hecho obligatorio el email dentro del `message` de entrada para evitar fallos del
+  structured output cuando el modelo intentaba devolver `email: ""`.
+- Conectada **Fase 3 (HubSpot)**: si `score >= 75`, el workflow crea o actualiza el
+  contacto en HubSpot por email y guarda `hubspot_contact_id` en Supabase.
+- Validación real completada: lead calificado respondió `201`, quedó en Supabase y
+  `hubspot_contact_id` quedó poblado.
+- Corregidos problemas operativos de desarrollo: rutas públicas, CORS al abrir
+  `file://`, lock de `mastra.duckdb` por procesos duplicados y path estable de
+  `mastra.db` / `mastra.duckdb`.
 
-### Próximo paso inmediato: Fase 3 — HubSpot
+### Próximo paso inmediato: despliegue de prueba
 
-**Bloqueado por:** token de HubSpot inválido. El token actual es un Developer API Key
-del portal de desarrollador de HubSpot, no un Private App token del CRM.
+Preparar el deploy público con variables de entorno completas:
+`OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+`HUBSPOT_ACCESS_TOKEN` y `ADMIN_API_KEY`.
 
-**Qué hacer al inicio de la próxima sesión:**
-1. Ir a **app.hubspot.com** (cuenta CRM, NO developers.hubspot.com)
-2. Settings → Integrations → **Private Apps** → Create a private app
-3. Activar scopes: `crm.objects.contacts.read` y `crm.objects.contacts.write`
-4. Copiar el token generado (formato `pat-na1-...`) y ponerlo en `.env`
-   como `HUBSPOT_ACCESS_TOKEN`
-5. Implementar `create-hubspot-contact-tool.ts` (el esqueleto ya existe)
-6. Agregar un paso condicional al workflow: si `score ≥ 75` → llamar a HubSpot
+Checklist mínima de despliegue:
+1. Ejecutar `npm run build`
+2. Desplegar `.mastra/output`
+3. Configurar las variables de entorno
+4. Verificar `GET /` y `POST /intake`
+5. Confirmar que un lead calificado crea/actualiza contacto en HubSpot
 
 **Concepto clave aprendido (para no olvidar):**
-- La API Key clásica de HubSpot (UUID) está deprecada para el CRM v3.
-- El Developer API Key (`CiR...`) sirve para el portal de desarrollador, no para CRM.
-- Para operaciones de CRM en producción siempre usar **Private App token** (`pat-...`).
+- HubSpot se trata como una sincronización posterior: Supabase guarda primero el lead.
+- Si HubSpot falla temporalmente, el intake no debe perder el lead ya guardado.
+- Para operaciones de CRM usar **Private App token** (`pat-...`) con permisos de contactos.

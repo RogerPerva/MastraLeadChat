@@ -1,20 +1,30 @@
 import { z } from "zod";
 
+function optionalText<T extends z.ZodType>(schema: T) {
+    return z.preprocess(
+        (value) =>
+            typeof value === "string" && value.trim() === ""
+                ? undefined
+                : value,
+        schema.optional()
+    );
+}
+
 /**
  * Contrato único de los datos que la IA extrae del mensaje y del PDF.
  * Lo comparten el structured output del agente y los pasos del workflow.
  */
 export const leadAnalysisSchema = z.object({
-    name: z.string().optional(),
-    email: z.string().email().optional(),
-    phone: z.string().optional(),
-    company: z.string().optional(),
-    role: z.string().optional(),
+    name: optionalText(z.string()),
+    email: optionalText(z.string().email()),
+    phone: optionalText(z.string()),
+    company: optionalText(z.string()),
+    role: optionalText(z.string()),
 
     leadType: z.enum(["hr", "dev", "business", "unknown"]),
     need: z.string(),
-    budget: z.string().optional(),
-    timeline: z.string().optional(),
+    budget: optionalText(z.string()),
+    timeline: optionalText(z.string()),
 
     hasBudget: z.boolean(),
     hasUrgency: z.boolean(),

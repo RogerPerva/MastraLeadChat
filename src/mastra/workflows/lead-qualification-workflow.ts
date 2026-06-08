@@ -1,15 +1,21 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { calculateLeadScore } from "../tools/score-lead-tool";
-import { insertLead } from "../tools/save-lead-tool";
+import {
+    insertLead,
+    updateLeadHubSpotContactId,
+} from "../tools/save-lead-tool";
+import { upsertHubSpotContact } from "../tools/create-hubspot-contact-tool";
 import { extractTextFromPdf, MAX_PDF_BASE64_LENGTH } from "../services/pdf.service";
 import { leadAnalysisSchema } from "../schemas/lead.schema";
+import { intakeInputSchema, intakeOutputSchema } from "../schemas/intake.schema";
 
 /**
  * WORKFLOW DE CALIFICACIÓN DE LEADS — Fase 2
  *
  * Flujo: mensaje/PDF --> (0) extraer PDF --> (1) analizar con IA
  *        --> (2) score con reglas --> (3) guardar en Supabase
+ *        --> (4) sincronizar calificados con HubSpot
  *
  * Idea clave: la IA SOLO interpreta y extrae datos (paso 1).
  * Las decisiones comerciales (score) y la persistencia (Supabase)
@@ -24,9 +30,9 @@ const extractPdfStep = createStep({
     id: "extract-pdf-step",
 
     inputSchema: z.object({
-        message: z.string(),
+        message: intakeInputSchema.shape.message,
         pdfBase64: z.string().max(MAX_PDF_BASE64_LENGTH).optional(),
-        pdfName: z.string().optional(),
+        pdfName: intakeInputSchema.shape.pdfName,
     }),
 
     outputSchema: z.object({
@@ -141,7 +147,8 @@ const saveStep = createStep({
     outputSchema: z.object({
         leadId: z.string(),
         score: z.number(),
-        status: z.string(),
+        status: z.enum(["qualified", "nurture", "disqualified"]),
+        lead: leadAnalysisSchema,
     }),
 
     execute: async ({ inputData }) => {
@@ -166,6 +173,50 @@ const saveStep = createStep({
             leadId: result.leadId,
             score: inputData.score,
             status: inputData.status,
+            lead: inputData.lead,
+        };
+    },
+});
+
+/**
+ * Paso 4: Sincroniza únicamente leads calificados con HubSpot.
+ *
+ * Supabase ya contiene el lead antes de llamar al servicio externo. Un error
+ * temporal de HubSpot se registra, pero no invalida el intake guardado.
+ */
+const syncQualifiedLeadStep = createStep({
+    id: "sync-qualified-lead-with-hubspot-step",
+
+    inputSchema: saveStep.outputSchema,
+    outputSchema: intakeOutputSchema,
+
+    execute: async ({ inputData }) => {
+        if (inputData.score >= 75 && inputData.lead.email) {
+            try {
+                const { hubspotContactId } = await upsertHubSpotContact({
+                    email: inputData.lead.email,
+                    name: inputData.lead.name,
+                    phone: inputData.lead.phone,
+                    company: inputData.lead.company,
+                    role: inputData.lead.role,
+                });
+
+                await updateLeadHubSpotContactId(
+                    inputData.leadId,
+                    hubspotContactId
+                );
+            } catch (error) {
+                console.error("No se pudo sincronizar el lead con HubSpot.", {
+                    leadId: inputData.leadId,
+                    error,
+                });
+            }
+        }
+
+        return {
+            leadId: inputData.leadId,
+            score: inputData.score,
+            status: inputData.status,
         };
     },
 });
@@ -173,20 +224,12 @@ const saveStep = createStep({
 export const leadQualificationWorkflow = createWorkflow({
     id: "lead-qualification-workflow",
 
-    inputSchema: z.object({
-        message: z.string(),
-        pdfBase64: z.string().max(MAX_PDF_BASE64_LENGTH).optional(),
-        pdfName: z.string().optional(),
-    }),
-
-    outputSchema: z.object({
-        leadId: z.string(),
-        score: z.number(),
-        status: z.string(),
-    }),
+    inputSchema: intakeInputSchema,
+    outputSchema: intakeOutputSchema,
 })
     .then(extractPdfStep)
     .then(analyzeLeadStep)
     .then(scoreStep)
     .then(saveStep)
+    .then(syncQualifiedLeadStep)
     .commit();

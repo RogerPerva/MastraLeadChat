@@ -45,6 +45,29 @@ npm install
 npm run dev            # Mastra Studio at http://localhost:4111
 ```
 
+The public test form is available at the server root or:
+
+```text
+http://localhost:4111/intake.html
+```
+
+It calls only `POST /intake`. Built-in Mastra routes are protected when
+`ADMIN_API_KEY` is configured and production startup fails if that key is missing.
+
+## Deploy for testing
+
+Configure these environment variables in a Node.js-compatible host:
+
+```text
+NODE_ENV=production
+OPENAI_API_KEY=...
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+ADMIN_API_KEY=...
+```
+
+Build with `npm run build` and start with `npm run start`.
+
 ## Roadmap
 
 - [x] Phase 1 — MVP: message → analysis → score → Supabase

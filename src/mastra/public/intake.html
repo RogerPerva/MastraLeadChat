@@ -39,7 +39,7 @@
       margin-top: 20px;
     }
 
-    textarea, input[type="file"] {
+    textarea, input[type="email"], input[type="file"] {
       width: 100%;
       background: #111;
       border: 1px solid #333;
@@ -52,7 +52,7 @@
     }
 
     textarea { resize: vertical; min-height: 100px; }
-    textarea:focus { border-color: #555; }
+    textarea:focus, input[type="email"]:focus { border-color: #555; }
 
     input[type="file"] {
       padding: 10px 12px;
@@ -136,6 +136,15 @@
     <h1>Formulario de Intake Comercial</h1>
     <p class="subtitle">Cuéntanos tu proyecto. La IA lo analizará y calificará automáticamente.</p>
 
+    <label for="email">Correo electrónico *</label>
+    <input
+      type="email"
+      id="email"
+      placeholder="nombre@empresa.com"
+      autocomplete="email"
+      required
+    />
+
     <label for="message">Mensaje *</label>
     <textarea
       id="message"
@@ -152,8 +161,7 @@
   </div>
 
   <script>
-    const MASTRA_URL = "http://localhost:4111";
-    const WORKFLOW_KEY = "leadQualificationWorkflow"; // clave de registro en index.ts
+    const INTAKE_URL = "/intake";
 
     function setStatus(type, html) {
       const el = document.getElementById("status");
@@ -177,9 +185,16 @@
     }
 
     async function submitLead() {
+      const emailInput = document.getElementById("email");
+      const email = emailInput.value.trim();
       const message = document.getElementById("message").value.trim();
       const pdfInput = document.getElementById("pdf");
       const btn = document.getElementById("submitBtn");
+
+      if (!email || !emailInput.checkValidity()) {
+        setStatus("error", "Ingresa un correo electrónico válido.");
+        return;
+      }
 
       if (!message) {
         setStatus("error", "El mensaje es obligatorio.");
@@ -187,6 +202,11 @@
       }
 
       const pdfFile = pdfInput.files[0];
+      if (pdfFile && pdfFile.type !== "application/pdf") {
+        setStatus("error", "Solo se permiten archivos PDF.");
+        return;
+      }
+
       if (pdfFile && pdfFile.size > 5 * 1024 * 1024) {
         setStatus("error", "El PDF excede el tamaño máximo de 5 MB.");
         return;
@@ -196,51 +216,26 @@
       setStatus("loading", "Analizando tu solicitud con IA...");
 
       try {
-        const inputData = { message };
+        const inputData = {
+          message: `${message}\n\nCorreo electrónico de contacto: ${email}`,
+        };
 
         if (pdfFile) {
           inputData.pdfBase64 = await fileToBase64(pdfFile);
           inputData.pdfName = pdfFile.name;
         }
 
-        // 1. Crear el run (obtiene un runId único)
-        const createRes = await fetch(
-          `${MASTRA_URL}/api/workflows/${WORKFLOW_KEY}/create-run`,
-          { method: "POST", headers: { "Content-Type": "application/json" } }
-        );
-        if (!createRes.ok) throw new Error("No se pudo crear el run.");
-        const { runId } = await createRes.json();
+        const response = await fetch(INTAKE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(inputData),
+        });
+        const output = await response.json();
 
-        // 2. Iniciar el run con los datos del lead
-        const startRes = await fetch(
-          `${MASTRA_URL}/api/workflows/${WORKFLOW_KEY}/start?runId=${runId}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ inputData }),
-          }
-        );
-        if (!startRes.ok) throw new Error("No se pudo iniciar el workflow.");
-
-        // 3. Polling hasta que termine (máx ~45 segundos)
-        let result = null;
-        for (let i = 0; i < 30; i++) {
-          await new Promise((r) => setTimeout(r, 1500));
-          const statusRes = await fetch(
-            `${MASTRA_URL}/api/workflows/${WORKFLOW_KEY}/runs/${runId}`
-          );
-          const data = await statusRes.json();
-          if (data.status === "success" || data.status === "failed") {
-            result = data;
-            break;
-          }
+        if (!response.ok) {
+          throw new Error(output.error ?? "No se pudo procesar la solicitud.");
         }
 
-        if (!result) throw new Error("El workflow tardó demasiado. Intenta de nuevo.");
-        if (result.status === "failed") throw new Error(result.error ?? "Error en el workflow.");
-
-        // 4. Mostrar resultado
-        const output = result.result;
         const statusLabel =
           output.status === "qualified"   ? "Calificado"      :
           output.status === "nurture"     ? "En seguimiento"  :
