@@ -11,8 +11,6 @@ A user sends a free-text message describing their need. The system:
 3. Saves every lead to **Supabase** regardless of score (to track conversion over time)
 4. (In progress) Pushes high-score leads (≥75) to **HubSpot** as contacts
 
-The core design principle: **the agent interprets, the workflow controls**. Business decisions are code, not prompts.
-
 ## Stack
 
 - **Mastra** — agent and workflow orchestration
@@ -24,7 +22,7 @@ The core design principle: **the agent interprets, the workflow controls**. Busi
 ## Architecture
 
 ```
-message / PDF
+message* and PDF(optional)
       ↓
 [extract-pdf-step]   ← optional, reads PDF with unpdf
       ↓
@@ -45,15 +43,6 @@ Business logic lives in pure functions (`calculateLeadScore`, `insertLead`) that
 cp .env.example .env   # fill in your keys
 npm install
 npm run dev            # Mastra Studio at http://localhost:4111
-```
-
-Required env vars:
-
-```
-OPENAI_API_KEY=
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-HUBSPOT_ACCESS_TOKEN=     # Private App token (pat-na1-...)
 ```
 
 ## Roadmap
