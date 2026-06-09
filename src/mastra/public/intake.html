@@ -209,11 +209,14 @@
       font-family: monospace;
     }
 
-    .lead-id {
-      font-size: 0.72rem;
-      color: #444;
-      margin-top: 14px;
+    .action-meta {
+      font-size: 0.75rem;
+      color: #555;
+      margin-top: 2px;
+    }
+    .action-meta code {
       font-family: monospace;
+      color: #7c9cbf;
     }
   </style>
 </head>
@@ -385,18 +388,23 @@
           <div class="actions-list">
             <div class="action-item">
               <div class="action-dot ok"></div>
-              <span>Lead guardado en Supabase</span>
+              <div>
+                <div>Supabase — Lead saved</div>
+                <div class="action-meta">Table: <code>leads</code> &nbsp;·&nbsp; ID: <code>${output.leadId}</code></div>
+              </div>
             </div>
             <div class="action-item">
               <div class="action-dot ${hubspotOk ? "ok" : "skip"}"></div>
-              <span>${hubspotLabel}</span>
+              <div>
+                <div>HubSpot — ${hubspotLabel}</div>
+                ${hubspotOk ? `<div class="action-meta">Contact ID: <code>${output.hubspotContactId ?? "—"}</code></div>` : ""}
+              </div>
             </div>
           </div>
 
           <div class="section-title">Tools ejecutadas</div>
           <div class="tools-list">${toolsHtml}</div>
 
-          <div class="lead-id">Lead ID: ${output.leadId}</div>
         `);
       } catch (err) {
         setStatus("error", "Error: " + err.message);

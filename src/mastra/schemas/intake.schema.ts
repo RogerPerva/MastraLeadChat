@@ -39,5 +39,7 @@ export const intakeOutputSchema = z.object({
     }),
     toolsUsed: z.array(z.string()),
     supabaseStatus: z.enum(["saved"]),
+    supabaseTable: z.literal("leads"),
     hubspotStatus: z.enum(["contact_created", "contact_updated", "skipped"]),
+    hubspotContactId: z.string().optional(),
 });

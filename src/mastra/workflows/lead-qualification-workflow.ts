@@ -215,12 +215,13 @@ const syncQualifiedLeadStep = createStep({
         };
 
         let hubspotStatus: "contact_created" | "contact_updated" | "skipped" = "skipped";
+        let hubspotContactId: string | undefined;
 
         if (inputData.score >= 75 && inputData.lead.email) {
             toolsUsed.push("createHubSpotContactTool");
 
             try {
-                const { hubspotContactId, isNew } = await upsertHubSpotContact({
+                const result = await upsertHubSpotContact({
                     email: inputData.lead.email,
                     name: inputData.lead.name,
                     phone: inputData.lead.phone,
@@ -228,18 +229,15 @@ const syncQualifiedLeadStep = createStep({
                     role: inputData.lead.role,
                 });
 
-                await updateLeadHubSpotContactId(
-                    inputData.leadId,
-                    hubspotContactId
-                );
+                hubspotContactId = result.hubspotContactId;
+                hubspotStatus = result.isNew ? "contact_created" : "contact_updated";
 
-                hubspotStatus = isNew ? "contact_created" : "contact_updated";
+                await updateLeadHubSpotContactId(inputData.leadId, hubspotContactId);
             } catch (error) {
                 console.error("No se pudo sincronizar el lead con HubSpot.", {
                     leadId: inputData.leadId,
                     error,
                 });
-                // hubspotStatus queda "skipped" si falla — el lead en Supabase no se pierde
             }
         }
 
@@ -252,7 +250,9 @@ const syncQualifiedLeadStep = createStep({
             breakdown: inputData.breakdown,
             toolsUsed,
             supabaseStatus: "saved" as const,
+            supabaseTable: "leads" as const,
             hubspotStatus,
+            hubspotContactId,
         };
     },
 });
