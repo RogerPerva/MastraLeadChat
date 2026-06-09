@@ -26,4 +26,18 @@ export const intakeOutputSchema = z.object({
     leadId: z.string(),
     score: z.number().min(0).max(100),
     status: z.enum(["qualified", "nurture", "disqualified"]),
+
+    // Datos enriquecidos para el panel de resultados del demo
+    leadType: z.string(),
+    reason: z.string(),
+    breakdown: z.object({
+        budget: z.number(),
+        urgency: z.number(),
+        authority: z.number(),
+        clarity: z.number(),
+        fit: z.number(),
+    }),
+    toolsUsed: z.array(z.string()),
+    supabaseStatus: z.enum(["saved"]),
+    hubspotStatus: z.enum(["contact_created", "contact_updated", "skipped"]),
 });

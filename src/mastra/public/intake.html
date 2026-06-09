@@ -129,6 +129,92 @@
     .badge.qualified    { background: #1a4a1a; color: #6fcf97; }
     .badge.nurture      { background: #3a3a1a; color: #f2c94c; }
     .badge.disqualified { background: #4a1a1a; color: #eb5757; }
+
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #555;
+      margin: 20px 0 10px;
+    }
+
+    .reason-box {
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-size: 0.85rem;
+      color: #ccc;
+      line-height: 1.5;
+    }
+
+    .breakdown-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 7px;
+      font-size: 0.8rem;
+    }
+    .breakdown-label { color: #888; width: 80px; flex-shrink: 0; }
+    .bar-track {
+      flex: 1;
+      height: 6px;
+      background: #222;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: #6fcf97;
+      transition: width 0.4s ease;
+    }
+    .bar-fill.low  { background: #eb5757; }
+    .bar-fill.mid  { background: #f2c94c; }
+    .bar-fill.high { background: #6fcf97; }
+    .bar-pts { color: #555; width: 30px; text-align: right; flex-shrink: 0; }
+
+    .actions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .action-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+    }
+    .action-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .action-dot.ok   { background: #6fcf97; }
+    .action-dot.skip { background: #555; }
+
+    .tools-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tool-chip {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 4px;
+      padding: 3px 9px;
+      font-size: 0.75rem;
+      color: #7c9cbf;
+      font-family: monospace;
+    }
+
+    .lead-id {
+      font-size: 0.72rem;
+      color: #444;
+      margin-top: 14px;
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
@@ -237,28 +323,80 @@
         }
 
         const statusLabel =
-          output.status === "qualified"   ? "Calificado"      :
-          output.status === "nurture"     ? "En seguimiento"  :
+          output.status === "qualified"   ? "Calificado"     :
+          output.status === "nurture"     ? "En seguimiento" :
           "No calificado";
 
+        const bd = output.breakdown ?? {};
+        const breakdownItems = [
+          { label: "Presupuesto", pts: bd.budget   ?? 0, max: 20 },
+          { label: "Urgencia",    pts: bd.urgency   ?? 0, max: 20 },
+          { label: "Autoridad",   pts: bd.authority ?? 0, max: 20 },
+          { label: "Claridad",    pts: bd.clarity   ?? 0, max: 15 },
+          { label: "Fit",         pts: bd.fit       ?? 0, max: 25 },
+        ];
+
+        const barsHtml = breakdownItems.map(({ label, pts, max }) => {
+          const pct = Math.round((pts / max) * 100);
+          const cls = pct >= 70 ? "high" : pct >= 40 ? "mid" : "low";
+          return `
+            <div class="breakdown-bar">
+              <span class="breakdown-label">${label}</span>
+              <div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
+              <span class="bar-pts">${pts}/${max}</span>
+            </div>`;
+        }).join("");
+
+        const hubspotLabel =
+          output.hubspotStatus === "contact_created" ? "Contacto creado en HubSpot"      :
+          output.hubspotStatus === "contact_updated" ? "Contacto actualizado en HubSpot"  :
+          "Skipped: lead por debajo del umbral (≥75)";
+        const hubspotOk = output.hubspotStatus !== "skipped";
+
+        const toolsHtml = (output.toolsUsed ?? [])
+          .map(t => `<span class="tool-chip">${t}</span>`)
+          .join("");
+
         setStatus("success", `
-          <div style="margin-bottom:12px;font-weight:600;">Solicitud procesada correctamente</div>
-          <div class="result-grid">
+          <div style="margin-bottom:4px;font-weight:600;">Análisis del agente completado</div>
+
+          <div class="result-grid" style="margin-top:12px;">
             <div class="result-item">
               <div class="result-label">Score</div>
               <div class="result-value">${output.score} / 100</div>
             </div>
             <div class="result-item">
               <div class="result-label">Estado</div>
-              <div class="result-value">
-                <span class="badge ${output.status}">${statusLabel}</span>
-              </div>
+              <div class="result-value"><span class="badge ${output.status}">${statusLabel}</span></div>
             </div>
             <div class="result-item" style="grid-column:span 2">
-              <div class="result-label">ID del lead</div>
-              <div class="result-value" style="font-size:0.8rem;color:#666;">${output.leadId}</div>
+              <div class="result-label">Tipo de lead</div>
+              <div class="result-value" style="font-size:0.9rem;">${output.leadType ?? "—"}</div>
             </div>
           </div>
+
+          <div class="section-title">Razonamiento del score</div>
+          <div class="reason-box">${output.reason ?? "—"}</div>
+
+          <div class="section-title">Desglose de criterios</div>
+          ${barsHtml}
+
+          <div class="section-title">Acciones ejecutadas</div>
+          <div class="actions-list">
+            <div class="action-item">
+              <div class="action-dot ok"></div>
+              <span>Lead guardado en Supabase</span>
+            </div>
+            <div class="action-item">
+              <div class="action-dot ${hubspotOk ? "ok" : "skip"}"></div>
+              <span>${hubspotLabel}</span>
+            </div>
+          </div>
+
+          <div class="section-title">Tools ejecutadas</div>
+          <div class="tools-list">${toolsHtml}</div>
+
+          <div class="lead-id">Lead ID: ${output.leadId}</div>
         `);
       } catch (err) {
         setStatus("error", "Error: " + err.message);

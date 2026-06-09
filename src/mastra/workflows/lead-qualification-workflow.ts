@@ -149,6 +149,13 @@ const saveStep = createStep({
         score: z.number(),
         status: z.enum(["qualified", "nurture", "disqualified"]),
         lead: leadAnalysisSchema,
+        breakdown: z.object({
+            budget: z.number(),
+            urgency: z.number(),
+            fit: z.number(),
+            authority: z.number(),
+            clarity: z.number(),
+        }),
     }),
 
     execute: async ({ inputData }) => {
@@ -174,6 +181,7 @@ const saveStep = createStep({
             score: inputData.score,
             status: inputData.status,
             lead: inputData.lead,
+            breakdown: inputData.breakdown,
         };
     },
 });
@@ -191,9 +199,28 @@ const syncQualifiedLeadStep = createStep({
     outputSchema: intakeOutputSchema,
 
     execute: async ({ inputData }) => {
+        // Tools que siempre se ejecutan en el flujo base
+        const toolsUsed = [
+            "analyzeLeadTool",
+            "scoreLeadTool",
+            "saveLeadTool",
+        ];
+
+        // Etiqueta legible del tipo de lead extraído por la IA
+        const leadTypeLabel: Record<string, string> = {
+            hr: "HR / Recursos Humanos",
+            dev: "Desarrollo / IT",
+            business: "Negocio / Dirección",
+            unknown: "Sin clasificar",
+        };
+
+        let hubspotStatus: "contact_created" | "contact_updated" | "skipped" = "skipped";
+
         if (inputData.score >= 75 && inputData.lead.email) {
+            toolsUsed.push("createHubSpotContactTool");
+
             try {
-                const { hubspotContactId } = await upsertHubSpotContact({
+                const { hubspotContactId, isNew } = await upsertHubSpotContact({
                     email: inputData.lead.email,
                     name: inputData.lead.name,
                     phone: inputData.lead.phone,
@@ -205,11 +232,14 @@ const syncQualifiedLeadStep = createStep({
                     inputData.leadId,
                     hubspotContactId
                 );
+
+                hubspotStatus = isNew ? "contact_created" : "contact_updated";
             } catch (error) {
                 console.error("No se pudo sincronizar el lead con HubSpot.", {
                     leadId: inputData.leadId,
                     error,
                 });
+                // hubspotStatus queda "skipped" si falla — el lead en Supabase no se pierde
             }
         }
 
@@ -217,6 +247,12 @@ const syncQualifiedLeadStep = createStep({
             leadId: inputData.leadId,
             score: inputData.score,
             status: inputData.status,
+            leadType: leadTypeLabel[inputData.lead.leadType] ?? inputData.lead.leadType,
+            reason: inputData.lead.reason,
+            breakdown: inputData.breakdown,
+            toolsUsed,
+            supabaseStatus: "saved" as const,
+            hubspotStatus,
         };
     },
 });

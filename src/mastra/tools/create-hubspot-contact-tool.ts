@@ -12,7 +12,7 @@ const hubSpotContactInputSchema = z.object({
 export type HubSpotContactInput = z.infer<typeof hubSpotContactInputSchema>;
 
 type HubSpotUpsertResponse = {
-    results?: Array<{ id?: string }>;
+    results?: Array<{ id?: string; createdAt?: string; updatedAt?: string }>;
 };
 
 /**
@@ -20,7 +20,7 @@ type HubSpotUpsertResponse = {
  */
 export async function upsertHubSpotContact(
     input: HubSpotContactInput
-): Promise<{ hubspotContactId: string }> {
+): Promise<{ hubspotContactId: string; isNew: boolean }> {
     const accessToken = process.env.HUBSPOT_ACCESS_TOKEN;
 
     if (!accessToken) {
@@ -64,13 +64,17 @@ export async function upsertHubSpotContact(
     }
 
     const data = (await response.json()) as HubSpotUpsertResponse;
-    const hubspotContactId = data.results?.[0]?.id;
+    const result = data.results?.[0];
+    const hubspotContactId = result?.id;
 
     if (!hubspotContactId) {
         throw new Error("HubSpot no devolvió el id del contacto.");
     }
 
-    return { hubspotContactId };
+    // HubSpot batch upsert devuelve createdAt == updatedAt cuando es nuevo
+    const isNew = result.createdAt === result.updatedAt;
+
+    return { hubspotContactId, isNew };
 }
 
 /**
